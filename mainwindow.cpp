@@ -40,14 +40,20 @@ MainWindow::MainWindow(QWidget *parent)
     
     
     // Изъятие ранее сохранённых IP-адресов из памяти
-    QByteArray buf = settings->value(KeySettingsIp).toByteArray();
+    QByteArray buf = settings->value(KeyIpAddresses).toByteArray();
     QDataStream stream(&buf, QIODevice::ReadOnly);
     stream >> deviceAddresses;
     // Заполнение выкидного виджета этими адресами
     ui->camSelector->setPlaceholderText("Сохранённые IP-адреса");
     for (auto deviceAddress : deviceAddresses)
         ui->camSelector->addItem(QString::fromStdString(deviceAddress.address));
-
+    
+    
+    // Изъятие настроек приложения с директориями сохранения
+    if (!settings->value(KeyScreenWriteDir).isNull())
+        screenWriteDirectory = settings->value(KeyScreenWriteDir).toString();
+    if (!settings->value(KeyVideoWriteDir).isNull())
+        videoWriteDirectory = settings->value(KeyVideoWriteDir).toString();
 }
 
 MainWindow::~MainWindow()
@@ -118,11 +124,10 @@ void MainWindow::tryConnection(DeviceAddress tempDeviceAddress) {
                 currentDeviceAddress.address.substr(0, 7) == "rtsp://") // проверка на то, что адрес является камерой
         {
             deviceAddresses.push_back(currentDeviceAddress);
-            settings->remove(KeySettingsIp);
             QByteArray buf;
             QDataStream stream(&buf, QIODevice::WriteOnly);  
             stream << deviceAddresses;
-            settings->setValue(KeySettingsIp, buf);
+            settings->setValue(KeyIpAddresses, buf);
             ui->camSelector->addItem(QString::fromStdString(currentDeviceAddress.address));
         }
     }
@@ -212,7 +217,20 @@ void MainWindow::videoStream() {
             QImage qImage(image.data, image.cols, image.rows, image.step, QImage::Format_RGB888);
             qImage.rgbSwapped().save(file);
             emit setNotification("Снимок сохранён в " + file);
+            
+            screenAttentionCounter = 0;
         }
+        // Анимация вспышки
+        if (screenAttentionCounter < 25) {
+            screenAttentionCounter += 2;
+            float opacity = 0.5f + 0.5f * cos((screenAttentionCounter - 12) / 4);
+            Graphics tempGraphics;
+            Mat solidFillMat = tempGraphics.resize(Mat(1, 1, CV_8UC3, Vec3b(255, 255, 255)), Size(resizeImage.cols, resizeImage.rows), MyPoint(0, 0), 2);
+            graphics.insertPicture(resizeImage, solidFillMat, MyPoint(resizeImage.cols / 2, resizeImage.rows / 2), false, opacity);
+        }
+        
+        
+        
         
         
         // Запись видео
@@ -224,6 +242,7 @@ void MainWindow::videoStream() {
             if (videoWriter.isOpened()) {
                 videoWriter.release();
                 emit setButtonIconSignal(ui->writeVideoBtn, pixRedCircle);
+                emit setNotification("Запись остановлена");
             } else {
                 QString file;
                 int n = 0;
@@ -233,12 +252,12 @@ void MainWindow::videoStream() {
                 
                 videoWriter.open(file.toStdString(), VideoWriter::fourcc('m','p','4','v'), fps, Size(image.cols, image.rows));
                 emit setButtonIconSignal(ui->writeVideoBtn, pixRedSquare);
+                emit setNotification("Видео записывается в " + file);
             }
         }
-        if (videoWriter.isOpened()) {
+        if (videoWriter.isOpened())
             videoWriter.write(image);
-            //graphics.insertPicture(resizeImage, redCircle, MyPoint(resizeImage.cols - 25, 25));
-        }
+
         
         
         
@@ -260,5 +279,6 @@ void MainWindow::videoStream() {
     emit setImage(QPixmap(QSize(0, 0)));
     status = NOT_CONNECTED;
 }
+
 
 

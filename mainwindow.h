@@ -6,6 +6,7 @@
 #include "opencv2/opencv.hpp"
 #include "graphics.h"
 #include <QSettings>
+#include <QFileDialog>
 
 
 
@@ -47,6 +48,9 @@ private slots:
     void on_writeVideoBtn_clicked();
     void on_writeScreenBtn_clicked();
     
+    void on_writeVideoPath_clicked();
+    void on_writeScreenPath_clicked();
+    
 private:
     Ui::MainWindow *ui;
     
@@ -62,7 +66,9 @@ private:
     
     
     QSettings *settings = new QSettings("Strela", "IPviewer"); // Инициализация памяти
-    QString KeySettingsIp = "ContainerforIpAddressesOfCameras";
+    QString KeyIpAddresses = "ContainerforIpAddressesOfCameras";
+    QString KeyVideoWriteDir = "VideoWriteDirectory";
+    QString KeyScreenWriteDir = "ScreenWriteDirectory";
     
     
     
@@ -128,10 +134,12 @@ private:
     bool isScreenWriteRequest = false;
     bool isVideoWriteRequest = false;
     
-    QString screenWriteDirectory = "D:";
-    QString videoWriteDirectory = "D:";
+    QString screenWriteDirectory = QDir::currentPath();
+    QString videoWriteDirectory = QDir::currentPath();
     
     cv::VideoWriter videoWriter;
+    
+    int screenAttentionCounter = 25; // Счётчик анимации вспышки при снимке
     
     cv::Mat cross;
     QPixmap pixRedCircle;

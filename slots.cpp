@@ -103,6 +103,9 @@ void MainWindow::on_noCrossBtn_clicked()
 
 
 
+
+
+
 // Запись видео
 void MainWindow::on_writeVideoBtn_clicked()
 {
@@ -110,13 +113,33 @@ void MainWindow::on_writeVideoBtn_clicked()
     isVideoWriteRequest = true;
     UNLOCK;
 }
-
-
-
 // Снимок
 void MainWindow::on_writeScreenBtn_clicked()
 {
     LOCK;
     isScreenWriteRequest = true;
     UNLOCK;
+}
+
+// Выбор места сохранения видео
+void MainWindow::on_writeVideoPath_clicked()
+{
+    videoWriteDirectory = QFileDialog::getExistingDirectory(ui->writeVideoPath,
+                                                            "Выбор папки сохранения видео",
+                                                            videoWriteDirectory);
+    if (videoWriteDirectory.isEmpty())
+        videoWriteDirectory = QDir::currentPath();
+    emit setNotification("Видео будут сохраняться в " + videoWriteDirectory);
+    settings->setValue(KeyVideoWriteDir, videoWriteDirectory); // Сохранение настроек приложения
+}
+// Выбор места сохранения снимков
+void MainWindow::on_writeScreenPath_clicked()
+{
+    screenWriteDirectory = QFileDialog::getExistingDirectory(ui->writeScreenPath, 
+                                                             "Выбор папки сохранения снимков",
+                                                             screenWriteDirectory);
+    if (screenWriteDirectory.isEmpty())
+        screenWriteDirectory = QDir::currentPath();
+    emit setNotification("Снимки будут сохраняться в " + screenWriteDirectory);
+    settings->setValue(KeyScreenWriteDir, screenWriteDirectory); // Сохранение настроек приложения
 }
