@@ -54,3 +54,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 RESOURCES += \
     pictures.qrc
+
+
+
+RC_FILE = app.rc # Добавить файл, где прописана вставка иконки

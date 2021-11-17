@@ -35,7 +35,6 @@ public:
 private slots:
     void mouseMoveEvent(QMouseEvent *event)
     {
-        setFocus();
         int x = event->pos().x();
         int y = event->pos().y();
         

@@ -16,10 +16,12 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     
+    setWindowTitle("IPviewer");
     
-    connect(this, SIGNAL(setCursorSignal(const QCursor)), this, SLOT(setCursorSlot(const QCursor)));
     connect(this, SIGNAL(setButtonTextSignal(QPushButton*, const QString&)), this, SLOT(setButtonTextSlot(QPushButton*, const QString&)));
     connect(this, SIGNAL(setButtonIconSignal(QPushButton*, const QPixmap&)), this, SLOT(setButtonIconSlot(QPushButton*, const QPixmap&)));
+    qRegisterMetaType<QPushButton*>("QPushButton*");
+    connect(this, SIGNAL(setCursorSignal(const QCursor)), this, SLOT(setCursorSlot(const QCursor)));
     connect(this, SIGNAL(criticalMesageSignal(const QString &, const QString &)), this, SLOT(criticalMesageSlot(const QString &, const QString &)));
     connect(this, SIGNAL(setImage(QPixmap)), ui->videoLabel, SLOT(setPixmap(QPixmap)));
     connect(ui->videoLabel, SIGNAL(wheelSpinsSignal(int)), this, SLOT(wheelSpinsSlot(int)));
@@ -38,9 +40,8 @@ MainWindow::MainWindow(QWidget *parent)
     emit setButtonIconSignal(ui->writeScreenBtn, pixScreen);
     emit setButtonIconSignal(ui->writeVideoBtn, pixRedCircle);
     
-    
     // Изъятие ранее сохранённых IP-адресов из памяти
-    QByteArray buf = settings->value(KeyIpAddresses).toByteArray();
+    QByteArray buf = settings->value(keyIpAddresses).toByteArray();
     QDataStream stream(&buf, QIODevice::ReadOnly);
     stream >> deviceAddresses;
     // Заполнение выкидного виджета этими адресами
@@ -50,16 +51,25 @@ MainWindow::MainWindow(QWidget *parent)
     
     
     // Изъятие настроек приложения с директориями сохранения
-    if (!settings->value(KeyScreenWriteDir).isNull())
-        screenWriteDirectory = settings->value(KeyScreenWriteDir).toString();
-    if (!settings->value(KeyVideoWriteDir).isNull())
-        videoWriteDirectory = settings->value(KeyVideoWriteDir).toString();
+    if (!settings->value(keyScreenWriteDir).isNull())
+        screenWriteDirectory = settings->value(keyScreenWriteDir).toString();
+    if (!settings->value(keyVideoWriteDir).isNull())
+        videoWriteDirectory = settings->value(keyVideoWriteDir).toString();
+    
+
+    // Установка фильтра событий правой кнопки мыши для виджета выбора камеры 
+    // (чтобы можно было вызывать контекстное меню)
+    auto *selectorView = ui->camSelector->view();
+    selectorView->viewport()->installEventFilter(this);
+    selectorView->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(selectorView, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(camSelectorContextMenu(QPoint)));
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
 }
+
 
 
 
@@ -127,7 +137,7 @@ void MainWindow::tryConnection(DeviceAddress tempDeviceAddress) {
             QByteArray buf;
             QDataStream stream(&buf, QIODevice::WriteOnly);  
             stream << deviceAddresses;
-            settings->setValue(KeyIpAddresses, buf);
+            settings->setValue(keyIpAddresses, buf);
             ui->camSelector->addItem(QString::fromStdString(currentDeviceAddress.address));
         }
     }
@@ -212,26 +222,26 @@ void MainWindow::videoStream() {
             QString file;
             int n = 0;
             do
-                file = screenWriteDirectory + "/Снимок №" + QString::number(++n) + ".png";
+                file = screenWriteDirectory + "Снимок №" + QString::number(++n) + ".png";
             while (QFileInfo::exists(file));
             QImage qImage(image.data, image.cols, image.rows, image.step, QImage::Format_RGB888);
             qImage.rgbSwapped().save(file);
             emit setNotification("Снимок сохранён в " + file);
             
-            screenAttentionCounter = 0;
+            screenAttentionTimer(1);
         }
         // Анимация вспышки
-        if (screenAttentionCounter < 25) {
-            screenAttentionCounter += 2;
-            float opacity = 0.5f + 0.5f * cos((screenAttentionCounter - 12) / 4);
+        const uint flashDuration = 300000; // Длительность вспышки в микросекундах
+        if (screenAttentionTimer(2, false) < flashDuration) {
+            float opacity = 0.5f + 0.5f * 
+                    cos((2 * M_PI * screenAttentionTimer(2, false) / flashDuration - M_PI));
             Graphics tempGraphics;
             Mat solidFillMat = tempGraphics.resize(Mat(1, 1, CV_8UC3, Vec3b(255, 255, 255)), Size(resizeImage.cols, resizeImage.rows), MyPoint(0, 0), 2);
             graphics.insertPicture(resizeImage, solidFillMat, MyPoint(resizeImage.cols / 2, resizeImage.rows / 2), false, opacity);
         }
         
         
-        
-        
+
         
         // Запись видео
         if (isVideoWriteRequest) {
@@ -247,7 +257,7 @@ void MainWindow::videoStream() {
                 QString file;
                 int n = 0;
                 do
-                    file = videoWriteDirectory + "/Запись №" + QString::number(++n) + ".mp4";
+                    file = videoWriteDirectory + "Запись №" + QString::number(++n) + ".mp4";
                 while (QFileInfo::exists(file));
                 
                 videoWriter.open(file.toStdString(), VideoWriter::fourcc('m','p','4','v'), fps, Size(image.cols, image.rows));
@@ -259,9 +269,7 @@ void MainWindow::videoStream() {
             videoWriter.write(image);
 
         
-        
-        
-        
+
         
         emit setCoordinatesLabel("x: " + QString::number(int(graphics.ResizeToOriginalPoint(ui->videoLabel->pos()).x)) +
                                       "\n" + "y: " + QString::number(int(graphics.ResizeToOriginalPoint(ui->videoLabel->pos()).y)));

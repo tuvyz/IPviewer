@@ -4,5 +4,6 @@
         <file>Images/redCircle.png</file>
         <file>Images/redSquare.png</file>
         <file>Images/screen.png</file>
+        <file>Images/folder.png</file>
     </qresource>
 </RCC>

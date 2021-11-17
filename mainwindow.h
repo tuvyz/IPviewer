@@ -7,6 +7,8 @@
 #include "graphics.h"
 #include <QSettings>
 #include <QFileDialog>
+#include <QMenu>
+#include <QAbstractItemView>
 
 
 
@@ -51,9 +53,14 @@ private slots:
     void on_writeVideoPath_clicked();
     void on_writeScreenPath_clicked();
     
+    void camSelectorContextMenu(QPoint);
+    void camSelectorDeleteItem();
+    
 private:
+    
     Ui::MainWindow *ui;
     
+    bool eventFilter(QObject *o, QEvent *e);
     
     enum statuses {
         NOT_CONNECTED,
@@ -66,9 +73,9 @@ private:
     
     
     QSettings *settings = new QSettings("Strela", "IPviewer"); // Инициализация памяти
-    QString KeyIpAddresses = "ContainerforIpAddressesOfCameras";
-    QString KeyVideoWriteDir = "VideoWriteDirectory";
-    QString KeyScreenWriteDir = "ScreenWriteDirectory";
+    QString keyIpAddresses = "ContainerforIpAddressesOfCameras";
+    QString keyVideoWriteDir = "VideoWriteDirectory";
+    QString keyScreenWriteDir = "ScreenWriteDirectory";
     
     
     
@@ -139,7 +146,7 @@ private:
     
     cv::VideoWriter videoWriter;
     
-    int screenAttentionCounter = 25; // Счётчик анимации вспышки при снимке
+    MyTime screenAttentionTimer; // Счётчик анимации вспышки при снимке
     
     cv::Mat cross;
     QPixmap pixRedCircle;
@@ -149,7 +156,7 @@ private:
     void tryConnection(DeviceAddress tempDeviceAddress);
     
     void videoStream();
-    
+
 signals:
     
     void setCursorSignal(const QCursor&);
@@ -162,8 +169,6 @@ signals:
     void setFpsLabel(const QString&);
     
 };
-
-
 
 
 
@@ -181,6 +186,9 @@ inline QDataStream &operator >> (QDataStream &in, MainWindow::DeviceAddress &dev
     deviceAddress.password = buf[2].toStdString();
     return in;
 }
+
+
+
 
 
 

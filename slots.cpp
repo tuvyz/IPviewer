@@ -34,13 +34,14 @@ void MainWindow::on_camSelector_currentIndexChanged(int index)
     ui->loginEdit->setText(QString::fromStdString(deviceAddresses[index].login));
     ui->passwordEdit->setText(QString::fromStdString(deviceAddresses[index].password));
     ui->addressEdit->setText(QString::fromStdString(deviceAddresses[index].address));
+    //ui->camSelector->setCurrentIndex(-1);
 }
 
 
 
 
 
-
+// Кнопка запуска потока
 void MainWindow::on_startBtn_clicked()
 {
     switch (status) {
@@ -130,7 +131,7 @@ void MainWindow::on_writeVideoPath_clicked()
     if (videoWriteDirectory.isEmpty())
         videoWriteDirectory = QDir::currentPath();
     emit setNotification("Видео будут сохраняться в " + videoWriteDirectory);
-    settings->setValue(KeyVideoWriteDir, videoWriteDirectory); // Сохранение настроек приложения
+    settings->setValue(keyVideoWriteDir, videoWriteDirectory); // Сохранение настроек приложения
 }
 // Выбор места сохранения снимков
 void MainWindow::on_writeScreenPath_clicked()
@@ -141,5 +142,49 @@ void MainWindow::on_writeScreenPath_clicked()
     if (screenWriteDirectory.isEmpty())
         screenWriteDirectory = QDir::currentPath();
     emit setNotification("Снимки будут сохраняться в " + screenWriteDirectory);
-    settings->setValue(KeyScreenWriteDir, screenWriteDirectory); // Сохранение настроек приложения
+    settings->setValue(keyScreenWriteDir, screenWriteDirectory); // Сохранение настроек приложения
+}
+
+
+
+
+
+// Фильтр событий (нужен для меню сохранённых камер)
+bool MainWindow::eventFilter(QObject *object, QEvent *event) {
+    if (object == ui->camSelector->view()->viewport())
+        if (event->type() == QEvent::MouseButtonRelease)
+            if (static_cast<QMouseEvent*>(event)->button() == Qt::RightButton)
+                return true;
+    return false;
+}
+
+
+
+// Контекстное меню выборщика сохранённых камер
+void MainWindow::camSelectorContextMenu(QPoint pos) {
+    QAbstractItemView* view = ui->camSelector->view();
+    QAction *deleteAction = new QAction("Забыть");
+    deleteAction->setData(view->indexAt(pos).column()); // В данные записывается индекс ячейки
+    QMenu menu;
+    menu.addAction(deleteAction);
+    connect(deleteAction, SIGNAL(triggered()), this, SLOT(camSelectorDeleteItem()));
+    menu.exec(view->mapToGlobal(pos));
+}
+// Слот удаления адреса камеры по сигналу из контекстного меню
+void MainWindow::camSelectorDeleteItem() {
+    QAction *action = qobject_cast<QAction*>(sender());
+    int indexItem = action->data().toInt();
+    
+    ui->camSelector->removeItem(indexItem);
+    deviceAddresses.erase(begin(deviceAddresses) + indexItem);
+    if (deviceAddresses.isEmpty())
+        settings->remove(keyIpAddresses);
+    else {
+        QByteArray buf;
+        QDataStream stream(&buf, QIODevice::WriteOnly);  
+        stream << deviceAddresses;
+        settings->setValue(keyIpAddresses, buf);
+    }
+    
+    delete action;
 }
